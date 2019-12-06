@@ -1,4 +1,7 @@
 # SfMLearner Pytorch version
+
+This dev branch is used as development.
+
 This codebase implements the system described in the paper:
 
 Unsupervised Learning of Depth and Ego-Motion from Video
