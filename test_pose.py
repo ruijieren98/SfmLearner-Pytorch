@@ -25,6 +25,8 @@ parser.add_argument("--sequences", default=['09'], type=str, nargs='*', help="se
 parser.add_argument("--output-dir", default=None, type=str, help="Output directory for saving predictions in a big 3D numpy file")
 parser.add_argument("--img-exts", default=['png', 'jpg', 'bmp'], nargs='*', type=str, help="images extensions to glob")
 parser.add_argument("--rotation-mode", default='euler', choices=['euler', 'quat'], type=str)
+parser.add_argument("--save-trajectory", default=True, type=bool, help="save predicted matrix for evaluation")
+
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -52,7 +54,7 @@ def main():
         
     pose_mat = np.identity(4)
     poses_to_save = [pose_mat[0:3, :].reshape(1, 12)]
-    print(type(poses_to_save))
+    
         
     for j, sample in enumerate(tqdm(framework)):
         imgs = sample['imgs']
@@ -92,7 +94,7 @@ def main():
         pose_mat = pose_mat @ np.vstack([final_poses[1,:,:], np.array([0, 0, 0, 1])])
         
         poses_to_save.append(pose_mat[0:3, :].reshape(1, 12))
-        #print("frame {}, pose: {}".format(j, pose_mat))
+        
         
         
             
@@ -102,11 +104,12 @@ def main():
 
         ATE, RE = compute_pose_error(sample['poses'], final_poses)
         errors[j] = ATE, RE
-        
-    poses_to_save = np.concatenate(poses_to_save, axis=0)
-    filename = './result/' + args.sequences[0] + '.txt'
-    np.savetxt(filename, poses_to_save, delimiter=' ', fmt='%1.8e')
-    print('pose saved to {}'.format(filename))
+    
+    if args.save_trajectory is True:
+        poses_to_save = np.concatenate(poses_to_save, axis=0)
+        filename = './result/' + args.sequences[0] + '.txt'
+        np.savetxt(filename, poses_to_save, delimiter=' ', fmt='%1.8e')
+        print('pose saved to {}'.format(filename))
         
     mean_errors = errors.mean(0)
     std_errors = errors.std(0)
