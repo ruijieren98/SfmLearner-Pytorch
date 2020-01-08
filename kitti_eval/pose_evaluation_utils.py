@@ -11,7 +11,7 @@ class test_framework_KITTI(object):
     def __init__(self, root, sequence_set, seq_length=3, step=1):
         self.root = root
         self.img_files, self.poses, self.sample_indices = read_scene_data(self.root, sequence_set, seq_length, step)
-
+        
     def generator(self):
         for img_list, pose_list, sample_list in zip(self.img_files, self.poses, self.sample_indices):
             for snippet_indices in sample_list:

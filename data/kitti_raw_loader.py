@@ -170,14 +170,17 @@ class KittiRawLoader(object):
 
                 odo_pose = imu2cam @ np.linalg.inv(origin) @ pose_matrix @ np.linalg.inv(imu2cam)
                 scene_data['pose'].append(odo_pose[:3])
-
+            
+            
             sample = self.load_image(scene_data, 0)
+            
             if sample is None:
                 return []
             scene_data['P_rect'] = self.get_P_rect(scene_data, sample[1], sample[2])
             scene_data['intrinsics'] = scene_data['P_rect'][:,:3]
 
             train_scenes.append(scene_data)
+            
         return train_scenes
 
     def get_scene_imgs(self, scene_data):
@@ -219,6 +222,9 @@ class KittiRawLoader(object):
         if not img_file.isfile():
             return None
         img = scipy.misc.imread(img_file)
+        if img.shape == ():
+            import cv2
+            img = cv2.imread(img_file)
         zoom_y = self.img_height/img.shape[0]
         zoom_x = self.img_width/img.shape[1]
         img = scipy.misc.imresize(img, (self.img_height, self.img_width))

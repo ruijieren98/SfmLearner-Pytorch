@@ -34,14 +34,14 @@ def main():
     args = parser.parse_args()
     from kitti_eval.pose_evaluation_utils import test_framework_KITTI as test_framework
 
-    weights = torch.load(args.pretrained_posenet)
+    weights = torch.load(args.pretrained_posenet, map_location=torch.device('cpu'))
     seq_length = int(weights['state_dict']['conv1.0.weight'].size(1)/3)
     pose_net = PoseExpNet(nb_ref_imgs=seq_length - 1, output_exp=False).to(device)
     pose_net.load_state_dict(weights['state_dict'], strict=False)
 
     dataset_dir = Path(args.dataset_dir)
     framework = test_framework(dataset_dir, args.sequences, seq_length)
-
+    
     print('{} snippets to test'.format(len(framework)))
     errors = np.zeros((len(framework), 2), np.float32)
     if args.output_dir is not None:
@@ -49,6 +49,11 @@ def main():
         output_dir.makedirs_p()
         predictions_array = np.zeros((len(framework), seq_length, 3, 4))
 
+        
+    pose_mat = np.identity(4)
+    poses_to_save = [pose_mat[0:3, :].reshape(1, 12)]
+    print(type(poses_to_save))
+        
     for j, sample in enumerate(tqdm(framework)):
         imgs = sample['imgs']
 
@@ -71,7 +76,7 @@ def main():
 
         poses = poses.cpu()[0]
         poses = torch.cat([poses[:len(imgs)//2], torch.zeros(1,6).float(), poses[len(imgs)//2:]])
-
+        
         inv_transform_matrices = pose_vec2mat(poses, rotation_mode=args.rotation_mode).numpy().astype(np.float64)
 
         rot_matrices = np.linalg.inv(inv_transform_matrices[:,:,:3])
@@ -80,15 +85,29 @@ def main():
         transform_matrices = np.concatenate([rot_matrices, tr_vectors], axis=-1)
 
         first_inv_transform = inv_transform_matrices[0]
+        
         final_poses = first_inv_transform[:,:3] @ transform_matrices
         final_poses[:,:,-1:] += first_inv_transform[:,-1:]
-
+        
+        pose_mat = pose_mat @ np.vstack([final_poses[1,:,:], np.array([0, 0, 0, 1])])
+        
+        poses_to_save.append(pose_mat[0:3, :].reshape(1, 12))
+        #print("frame {}, pose: {}".format(j, pose_mat))
+        
+        
+            
+        
         if args.output_dir is not None:
             predictions_array[j] = final_poses
 
         ATE, RE = compute_pose_error(sample['poses'], final_poses)
         errors[j] = ATE, RE
-
+        
+    poses_to_save = np.concatenate(poses_to_save, axis=0)
+    filename = './result/' + args.sequences[0] + '.txt'
+    np.savetxt(filename, poses_to_save, delimiter=' ', fmt='%1.8e')
+    print('pose saved to {}'.format(filename))
+        
     mean_errors = errors.mean(0)
     std_errors = errors.std(0)
     error_names = ['ATE','RE']
